@@ -1,15 +1,19 @@
 package com.shabadak.weblog.admin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.shabadak.weblog.admin.model.vo.tag.FindTagPageListReqVO;
 import com.shabadak.weblog.admin.model.vo.tag.FindTagPageListRspVO;
 import com.shabadak.weblog.admin.service.AdminTagService;
+import com.shabadak.weblog.common.domain.dos.ArticleTagRelDO;
 import com.shabadak.weblog.common.domain.dos.CategoryDO;
 import com.shabadak.weblog.common.domain.dos.TagDO;
+import com.shabadak.weblog.common.domain.mapper.ArticleTagRelMapper;
 import com.shabadak.weblog.common.domain.mapper.TagMapper;
 import com.shabadak.weblog.common.enums.ResponseCodeEnum;
 import com.shabadak.weblog.common.exception.BizException;
+import com.shabadak.weblog.common.model.vo.SelectRspVO;
 import com.shabadak.weblog.common.utils.PageResponse;
 import com.shabadak.weblog.common.utils.Response;
 import org.apache.commons.lang3.StringUtils;
@@ -36,6 +40,8 @@ public class AdminTagServiceImpl implements AdminTagService {
     @Autowired
     private TagMapper tagMapper;
 
+    @Autowired
+    private ArticleTagRelMapper articleTagRelMapper;
     @Override
     public PageResponse getTagList(FindTagPageListReqVO findTagPageListReqVO) {
         Long current = findTagPageListReqVO.getCurrent();
@@ -78,5 +84,56 @@ public class AdminTagServiceImpl implements AdminTagService {
         tagMapper.insert(tag);
         return Response.success();
 
+    }
+
+    @Override
+    public Response getTagByName(String name) {
+        LambdaQueryWrapper<TagDO> wrapper = new LambdaQueryWrapper();
+        wrapper.like(StringUtils.isNotBlank(name), TagDO::getName, name.trim());
+        List<TagDO> tagDO = tagMapper.selectList(wrapper);
+        return Response.success(tagDO);
+    }
+
+    @Override
+    public Response findTagSelectList() {
+        // 查询所有标签, Wrappers.emptyWrapper() 表示查询条件为空
+        List<TagDO> tagDOS = tagMapper.selectList(Wrappers.emptyWrapper());
+
+        // DO 转 VO
+        List<SelectRspVO> vos = null;
+        if (!CollectionUtils.isEmpty(tagDOS)) {
+            vos = tagDOS.stream()
+                    .map(tagDO -> SelectRspVO.builder()
+                            .label(tagDO.getName())
+                            .value(tagDO.getId())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
+        return Response.success(vos);
+    }
+
+    /**
+     * 删除标签
+     *
+     * @param tagId
+     * @return
+     */
+    @Override
+    public Response deleteTag(Long tagId) {
+
+
+        // 校验该标签下是否有关联的文章，若有，则不允许删除，提示用户需要先删除标签下的文章
+        ArticleTagRelDO articleTagRelDO = articleTagRelMapper.selectOneByTagId(tagId);
+
+        if (Objects.nonNull(articleTagRelDO)) {
+//            log.warn("==> 此标签下包含文章，无法删除，tagId: {}", tagId);
+            throw new BizException(ResponseCodeEnum.TAG_CAN_NOT_DELETE);
+        }
+
+        // 根据标签 ID 删除
+        int count = tagMapper.deleteById(tagId);
+
+        return count == 1 ? Response.success() : Response.fail(ResponseCodeEnum.TAG_NOT_EXISTED);
     }
 }

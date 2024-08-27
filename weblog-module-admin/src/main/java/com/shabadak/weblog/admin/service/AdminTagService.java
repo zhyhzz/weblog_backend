@@ -16,4 +16,14 @@ public interface AdminTagService {
     PageResponse getTagList(FindTagPageListReqVO findTagPageListReqVO);
 
     Response addTag(String name);
+
+    Response getTagByName(String name);
+
+    /**
+     * 查询标签 Select 列表数据
+     * @return
+     */
+    Response findTagSelectList();
+
+    Response deleteTag(Long tagId);
 }

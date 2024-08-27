@@ -7,7 +7,9 @@ import com.shabadak.weblog.admin.model.vo.category.AddCategoryReqVO;
 import com.shabadak.weblog.admin.model.vo.category.FindCategoryPageListReqVO;
 import com.shabadak.weblog.admin.model.vo.category.FindCategoryPageListRspVO;
 import com.shabadak.weblog.admin.service.AdminCategoryService;
+import com.shabadak.weblog.common.domain.dos.ArticleCategoryRelDO;
 import com.shabadak.weblog.common.domain.dos.CategoryDO;
+import com.shabadak.weblog.common.domain.mapper.ArticleCategoryRelMapper;
 import com.shabadak.weblog.common.domain.mapper.CategoryMapper;
 import com.shabadak.weblog.common.enums.ResponseCodeEnum;
 import com.shabadak.weblog.common.exception.BizException;
@@ -39,6 +41,9 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
 
     @Autowired
     private CategoryMapper categoryMapper;
+
+    @Autowired
+    private ArticleCategoryRelMapper articleCategoryRelMapper;
 
     /**
      * 添加分类
@@ -97,6 +102,14 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
 
     @Override
     public Response deleteCategory(Long id) {
+
+        // 校验该分类下是否已经有文章，若有，则提示需要先删除分类下所有文章，才能删除
+        ArticleCategoryRelDO articleCategoryRelDO = articleCategoryRelMapper.selectOneByCategoryId(id);
+
+        if (Objects.nonNull(articleCategoryRelDO)) {
+//            log.warn("==> 此分类下包含文章，无法删除，categoryId: {}", categoryId);
+            throw new BizException(ResponseCodeEnum.CATEGORY_CAN_NOT_DELETE);
+        }
 
         CategoryDO categoryDO = categoryMapper.selectById(id);
         if(null != categoryDO) {
